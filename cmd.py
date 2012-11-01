@@ -1,0 +1,22 @@
+#!/usr/bin/python
+
+class CREQ:
+    BASE = "CREQ."
+
+    NOTIFY_UPDATE = BASE + "NOTIFY_UPDATE"
+    ANALYZE_APP = BASE + "ANALYZE_APP"
+
+class WREQ:
+    BASE = "WREQ."
+
+    REQ_FILE = BASE + "REQ_FILE"
+    REP_FILE = BASE + "REP_FILE"
+    REQ_ANALYSIS = BASE + "REQ_ANALYSIS"
+    REP_ANALYSIS = BASE + "REP_ANALYSIS"
+    DONE     = BASE + "DONE"
+
+class SPUB:
+    BASE = "SPUB."
+
+    NOTIFY_UPDATE = BASE + "NOTIFY_UPDATE"
+    ANALYZE_APP = BASE + "ANALYZE_APP"

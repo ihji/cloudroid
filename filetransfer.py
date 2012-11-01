@@ -1,27 +1,29 @@
 #!/usr/bin/env python
 
-TRANSFER_BUF = 1024000
+import zmq
+from cmd import WREQ
 
-def push_file(socket,path):
+TRANSFER_BUF = 512000
+
+def send_file(socket,path,loc,address=None):
     fn = open(path,"rb")
+    fn.seek(loc)
+    data = fn.read(TRANSFER_BUF)
+    if address:
+        socket.send(address,zmq.SNDMORE)
+        socket.send("",zmq.SNDMORE)
+    socket.send_pyobj({'cmd':WREQ.REP_FILE,'path':path,'body':data})
+    fn.close()
 
-    while True:
-        msg = socket.recv_pyobj()
-        fn.seek(msg['loc'])
-        data = fn.read(TRANSFER_BUF)
-        socket.send_pyobj({'body':data})
-        if not data:
-            break
-
-def get_file(socket,path):
-    t = open(path, 'w+')
-    msg = {'loc' : 0}
-
-    while True:
-        socket.send_pyobj(msg)
-        data = socket.recv_pyobj()
-        if data['body']:
-            t.write(data['body'])
-            msg['loc'] = t.tell()
-        else:
-            break
+def write_req_file(socket,path,data,target,address=None):
+    if data:
+        t = open(target, 'a')
+        t.write(data)
+        loc = t.tell()
+        if address:
+            socket.send(address,zmq.SNDMORE)
+            socket.send("",zmq.SNDMORE)
+        socket.send_pyobj({'cmd':WREQ.REQ_FILE,'path':path,'loc':loc})
+        t.close()
+    else:
+        socket.send_pyobj({'cmd':WREQ.DONE})

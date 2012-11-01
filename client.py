@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import zmq,sys,filetransfer
+import zmq,sys
+from cmd import CREQ
 
 server = "tcp://localhost:7979"
 
@@ -9,7 +10,7 @@ def main():
     socket = context.socket(zmq.REQ)
     socket.connect(server)
 
-    socket.send("update")
+    socket.send_pyobj({'cmd':CREQ.ANALYZE_APP})
 
     msg = socket.recv()
     print(msg)

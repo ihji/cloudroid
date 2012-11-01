@@ -1,12 +1,19 @@
 #!/usr/bin/env python
 
 import zmq
-from Queue import Queue
+from Queue import Queue,Empty
 from threading import Thread
 import signal
+import filetransfer
+from cmd import CREQ,WREQ,SPUB
+import os
+from os import path
+from droidblaze import Droidblaze
 
-job_queue = Queue()
+cast_queue = Queue()
 analysis_queue = Queue()
+
+work_dir = "temp"
 
 class ClientResponder(Thread):
     def __init__(self,socket):
@@ -15,24 +22,33 @@ class ClientResponder(Thread):
     def run(self):
         print("ClientResponder started.")
         while True:
-            msg = self.socket.recv()
-            if msg == "update":
-                print("put queue update")
-                job_queue.put(msg)
-                self.socket.send("Got "+msg)
+            msg = self.socket.recv_pyobj()
+            cmd = msg['cmd']
+            print("received from client: "+cmd)
+            if cmd == CREQ.NOTIFY_UPDATE:
+                cast_queue.put(msg)
+                self.socket.send("notified")
+            elif cmd == CREQ.ANALYZE_APP:
+                a = Droidblaze(work_dir,"SyncMyPix.apk","generate-cpcg")
+                analysis_queue.put(a)
+                cast_queue.put(msg)
+                self.socket.send("queued")
 
-class ServerWorker(Thread):
+class ServerCaster(Thread):
     def __init__(self,socket):
         Thread.__init__(self)
         self.socket = socket
     def run(self):
-        print("ServerWorker started.")
+        print("ServerCaster started.")
         while True:
-            job = job_queue.get()
-            if job == "update":
-                print("get update from queue")
-                self.socket.send("update")
-            job_queue.task_done()
+            msg = cast_queue.get()
+            cmd = msg['cmd']
+            print("next cmd: "+cmd)
+            if cmd == CREQ.NOTIFY_UPDATE:
+                self.socket.send_pyobj({'cmd':SPUB.NOTIFY_UPDATE,'path':"test.bin"})
+            elif cmd == CREQ.ANALYZE_APP:
+                self.socket.send_pyobj({'cmd':SPUB.ANALYZE_APP})
+            cast_queue.task_done()
 
 
 class WorkerResponder(Thread):
@@ -44,13 +60,35 @@ class WorkerResponder(Thread):
         while True:
             address = self.socket.recv()
             self.socket.recv()
-            msg = self.socket.recv()
-            print(msg)
-            self.socket.send(address,zmq.SNDMORE)
-            self.socket.send("",zmq.SNDMORE)
-            self.socket.send("Got "+msg)
+            msg = self.socket.recv_pyobj()
+            cmd = msg['cmd']
+            print("received from worker: "+cmd)
+            if cmd == WREQ.REQ_FILE:
+                filetransfer.send_file(self.socket,msg['path'],msg['loc'],address)
+            elif cmd == WREQ.REP_FILE:
+                filetransfer.write_req_file(self.socket,msg['path'],msg['body'],path.join(work_dir,msg['path']),address)
+            elif cmd == WREQ.REQ_ANALYSIS:
+                try:
+                    a = analysis_queue.get_nowait()
+                    # TODO: get apk from somewhere and transfer with message
+                    self.socket.send(address,zmq.SNDMORE)
+                    self.socket.send("",zmq.SNDMORE)
+                    self.socket.send_pyobj({'cmd':WREQ.REP_ANALYSIS,'droidblaze':a})
+                except Empty:
+                    self.socket.send(address,zmq.SNDMORE)
+                    self.socket.send("",zmq.SNDMORE)
+                    self.socket.send_pyobj({'cmd':WREQ.DONE})
+            elif cmd == WREQ.DONE:
+                self.socket.send(address,zmq.SNDMORE)
+                self.socket.send("",zmq.SNDMORE)
+                self.socket.send_pyobj({'cmd':WREQ.DONE})
+                    
+
 
 def main():
+    if not path.exists(work_dir):
+        os.makedirs(work_dir)
+
     context = zmq.Context(1)
 
     frontend = context.socket(zmq.REP)
@@ -64,7 +102,7 @@ def main():
     client_thread.daemon = True
     client_thread.start()
 
-    server_thread = ServerWorker(backend_cast)
+    server_thread = ServerCaster(backend_cast)
     server_thread.daemon = True
     server_thread.start()
 
@@ -72,7 +110,8 @@ def main():
     worker_thread.daemon = True
     worker_thread.start()
 
-    signal.pause()
+    while True:
+        signal.pause()
 
     # infinite loop!
 
