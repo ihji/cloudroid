@@ -12,6 +12,7 @@ from droidblaze import Droidblaze
 
 cast_queue = Queue()
 analysis_queue = Queue()
+client_status = {}
 
 WORK_DIR = "server_temp"
 
@@ -29,12 +30,25 @@ class ClientResponder(Thread):
                 cast_queue.put(msg)
                 self.socket.send("notified")
             elif cmd == CREQ.ANALYZE_APP:
-                a = Droidblaze("test","SyncMyPix.apk","generate-cpcg")
-                analysis_queue.put(a)
-                a = Droidblaze("test","spyera.apk","generate-cpcg")
-                analysis_queue.put(a)
+                a = Droidblaze(msg['id'],msg['apk'],msg['task'])
+                app = path.join(WORK_DIR,msg['apk'])
+                analysis_queue.put({'droidblaze':a,'file':app})
                 cast_queue.put(msg)
                 self.socket.send("queued")
+            elif cmd == CREQ.ANALYZE_DIR:
+                target_dir = msg['dir']
+                for f in os.listdir(target_dir):
+                    if f.endswith(".apk"):
+                        a = Droidblaze(msg['id'],f,msg['task'])
+                        app = path.join(target_dir,f)
+                        analysis_queue.put({'droidblaze':a,'file':app})
+                cast_queue.put({'cmd':CREQ.ANALYZE_APP})
+                self.socket.send("queued")
+            elif cmd == CREQ.UPDATE_STATUS:
+                cast_queue.put(msg)
+                self.socket.send("queued")
+            elif cmd == CREQ.REPORT_STATUS:
+                self.socket.send("report: {}".format(client_status))
 
 class ServerCaster(Thread):
     def __init__(self,socket):
@@ -51,6 +65,8 @@ class ServerCaster(Thread):
                 self.socket.send_pyobj({'cmd':SPUB.NOTIFY_UPDATE,'path':msg['file'],'md5':md5})
             elif cmd == CREQ.ANALYZE_APP:
                 self.socket.send_pyobj({'cmd':SPUB.ANALYZE_APP})
+            elif cmd == CREQ.UPDATE_STATUS:
+                self.socket.send_pyobj({'cmd':SPUB.UPDATE_STATUS})
             cast_queue.task_done()
 
 
@@ -75,9 +91,10 @@ class WorkerResponder(Thread):
                 fileutil.write_req_file(self.socket,msg['path'],msg['target'],WORK_DIR,msg['body'],address)
             elif cmd == WREQ.REQ_ANALYSIS:
                 try:
-                    a = analysis_queue.get_nowait()
+                    w = analysis_queue.get_nowait()
+                    a = w['droidblaze']
                     # TODO: get apk from somewhere and transfer with message
-                    app = path.join(WORK_DIR,a.target_apk)
+                    app = w['file']
                     f = open(app,'rb')
                     app_data = f.read()
                     f.close()
@@ -99,6 +116,13 @@ class WorkerResponder(Thread):
                 self.socket.send(address,zmq.SNDMORE)
                 self.socket.send("",zmq.SNDMORE)
                 self.socket.send_pyobj({'cmd':WREQ.DONE})
+            elif cmd == WREQ.STATUS:
+                status = msg['status']
+                client_status[address] = status
+                self.socket.send(address,zmq.SNDMORE)
+                self.socket.send("",zmq.SNDMORE)
+                self.socket.send_pyobj({'cmd':WREQ.DONE})
+
             else:
                 print("what?: "+cmd)
                     

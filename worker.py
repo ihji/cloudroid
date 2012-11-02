@@ -20,6 +20,7 @@ WORKER_ID = hex(uuid.getnode())
 DROIDBLAZE_DIST = "droidblaze.tgz"
 
 msg_queue = Queue()
+status = "init"
 
 class CastReceiver(Thread):
     def __init__(self,socket):
@@ -35,12 +36,15 @@ class CastReceiver(Thread):
                 msg_queue.put(msg)
             elif cmd == SPUB.ANALYZE_APP:
                 msg_queue.put(msg)
+            elif cmd == SPUB.UPDATE_STATUS:
+                msg_queue.put(msg)
 
 class Worker(Thread):
     def __init__(self,socket):
         Thread.__init__(self)
         self.socket = socket
     def filetransfer(self):
+        status = "file transfer"
         while True:
             msg = self.socket.recv_pyobj()
             cmd = msg['cmd']
@@ -48,6 +52,8 @@ class Worker(Thread):
                 fileutil.write_req_file(self.socket,msg['path'],msg['target'],WORK_DIR,msg['body'])
             elif cmd == WREQ.REQ_FILE:
                 fileutil.send_file(self.socket,msg['path'],msg['target'],msg['loc'])
+            elif cmd == SPUB.UPDATE_STATUS:
+                self.socket.send_pyobj({'cmd':WREQ.STATUS,'status':status})
             elif cmd == WREQ.DONE:
                 break
             else:
@@ -58,6 +64,7 @@ class Worker(Thread):
         print("Worker started")
         while True:
             print("getting from queue")
+            status = "ready"
             msg = msg_queue.get()
             cmd = msg['cmd']
             print("next cmd: "+cmd)
@@ -80,6 +87,8 @@ class Worker(Thread):
                 res = self.socket.recv_pyobj()
                 msg_queue.put(res)
             elif cmd == WREQ.REP_ANALYSIS:
+                # TODO: make analyze background work
+                status = "analyze"
                 a = msg['droidblaze']
                 app = path.join(WORK_DIR,a.target_apk)
                 app_tgz = path.splitext(a.target_apk)[0]+".tgz"
@@ -92,6 +101,10 @@ class Worker(Thread):
                 self.filetransfer()
                 msg_queue.put({'cmd':SPUB.ANALYZE_APP})
                 self.socket.send_pyobj({'cmd':WREQ.FIN_ANALYSIS,'droidblaze': a,'result':path.join(WORKER_ID,app_tgz)})
+                res = self.socket.recv_pyobj()
+                msg_queue.put(res)
+            elif cmd == SPUB.UPDATE_STATUS:
+                self.socket.send_pyobj({'cmd':WREQ.STATUS,'status':status})
                 res = self.socket.recv_pyobj()
                 msg_queue.put(res)
             elif cmd == WREQ.DONE:

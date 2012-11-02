@@ -10,11 +10,22 @@ def main():
     socket = context.socket(zmq.REQ)
     socket.connect(server)
 
-    socket.send_pyobj({'cmd':CREQ.NOTIFY_UPDATE,'file':"droidblaze.tgz"})
+#    socket.send_pyobj({'cmd':CREQ.NOTIFY_UPDATE,'file':"droidblaze.tgz"})
+#    msg = socket.recv()
+#    print(msg)
+#
+#    socket.send_pyobj({'cmd':CREQ.ANALYZE_APP,'id':"test",'apk':"SyncMyPix.apk",'task':"generate-cpcg"})
+#    msg = socket.recv()
+#    print(msg)
+
+    socket.send_pyobj({'cmd':CREQ.ANALYZE_DIR,'id':"test",'dir':"server_temp",'task':"generate-cpcg"})
     msg = socket.recv()
     print(msg)
 
-    socket.send_pyobj({'cmd':CREQ.ANALYZE_APP})
+    socket.send_pyobj({'cmd':CREQ.UPDATE_STATUS})
+    msg = socket.recv()
+    print(msg)
+    socket.send_pyobj({'cmd':CREQ.REPORT_STATUS})
     msg = socket.recv()
     print(msg)
 
