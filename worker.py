@@ -13,8 +13,10 @@ from os import path
 import uuid
 import time
 
-server = "tcp://localhost:7980"
-server_cast = "tcp://localhost:7981"
+SERVER_ADDRESS = "localhost"
+
+SERVER = "tcp://{}:7980".format(SERVER_ADDRESS)
+SERVER_CAST = "tcp://{}:7981".format(SERVER_ADDRESS)
 
 WORK_DIR = "temp"
 WORKER_ID = hex(uuid.getnode())
@@ -130,11 +132,11 @@ def main():
         os.makedirs(WORK_DIR)
     context = zmq.Context(1)
     cast_socket = context.socket(zmq.SUB)
-    cast_socket.connect(server_cast)
+    cast_socket.connect(SERVER_CAST)
     cast_socket.setsockopt(zmq.SUBSCRIBE,"")
     req_socket = context.socket(zmq.REQ)
     req_socket.setsockopt(zmq.IDENTITY,WORKER_ID)
-    req_socket.connect(server)
+    req_socket.connect(SERVER)
 
     receiver_thread = CastReceiver(cast_socket)
     receiver_thread.daemon = True
