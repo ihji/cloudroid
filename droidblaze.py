@@ -10,11 +10,11 @@ class Droidblaze:
     jvm_option = "-Xmx2048M"
     debug_option = "-Ddroidblaze.debug.consolemsg=1"
 
-    def __init__(self,work_dir,target,analyses):
+    def __init__(self,analysis_id,target,analyses):
+        self.analysis_id = analysis_id
         self.target_apk = target
         self.run_analyses = analyses
-        self.work_dir = work_dir
-    def run(self):
+    def run(self,work_dir):
         cmd = []
         cmd.append(self.java)
         cmd.append(self.jvm_option)
@@ -24,8 +24,8 @@ class Droidblaze:
         cmd.append("-Ddroidblaze.run.analyses={}".format(self.run_analyses))
         cmd.append("-jar")
         cmd.append(self.droidblaze_jar)
-        Popen(cmd,cwd=self.work_dir).wait()
+        Popen(cmd,cwd=work_dir).wait()
 
 if __name__ == "__main__":
-    dr = Droidblaze(sys.argv[1],sys.argv[2],sys.argv[3])
-    dr.run()
+    dr = Droidblaze(sys.argv[1],sys.argv[2])
+    dr.run(sys.argv[3])

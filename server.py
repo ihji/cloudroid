@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 import zmq
+import binascii
 from Queue import Queue,Empty
 from threading import Thread
 import signal
-import filetransfer
+import fileutil
 from cmd import CREQ,WREQ,SPUB
 import os
 from os import path
@@ -13,7 +14,7 @@ from droidblaze import Droidblaze
 cast_queue = Queue()
 analysis_queue = Queue()
 
-work_dir = "temp"
+WORK_DIR = "server_temp"
 
 class ClientResponder(Thread):
     def __init__(self,socket):
@@ -29,7 +30,7 @@ class ClientResponder(Thread):
                 cast_queue.put(msg)
                 self.socket.send("notified")
             elif cmd == CREQ.ANALYZE_APP:
-                a = Droidblaze(work_dir,"SyncMyPix.apk","generate-cpcg")
+                a = Droidblaze("test","SyncMyPix.apk","generate-cpcg")
                 analysis_queue.put(a)
                 cast_queue.put(msg)
                 self.socket.send("queued")
@@ -45,7 +46,7 @@ class ServerCaster(Thread):
             cmd = msg['cmd']
             print("next cmd: "+cmd)
             if cmd == CREQ.NOTIFY_UPDATE:
-                self.socket.send_pyobj({'cmd':SPUB.NOTIFY_UPDATE,'path':"test.bin"})
+                self.socket.send_pyobj({'cmd':SPUB.NOTIFY_UPDATE,'path':"droidblaze.tgz",'target':"droidblaze.tgz"})
             elif cmd == CREQ.ANALYZE_APP:
                 self.socket.send_pyobj({'cmd':SPUB.ANALYZE_APP})
             cast_queue.task_done()
@@ -55,6 +56,18 @@ class WorkerResponder(Thread):
     def __init__(self,socket):
         Thread.__init__(self)
         self.socket = socket
+    def getWorkerName(self,address):
+        is_text = True
+        for c in address:
+            if ord(c) < 32 or ord(c) > 128:
+                is_text = False
+                break
+        if is_text:
+            # print only if ascii text
+            return address
+        else:
+            # not text, print hex
+            return binascii.hexlify(address)
     def run(self):
         print("WorkerResponder started.")
         while True:
@@ -62,18 +75,26 @@ class WorkerResponder(Thread):
             self.socket.recv()
             msg = self.socket.recv_pyobj()
             cmd = msg['cmd']
-            print("received from worker: "+cmd)
+
+            worker = self.getWorkerName(address)
+            worker_dir = path.join(WORK_DIR,worker)
+
+            print("received from {}: {}".format(worker,cmd))
             if cmd == WREQ.REQ_FILE:
-                filetransfer.send_file(self.socket,msg['path'],msg['loc'],address)
+                fileutil.send_file(self.socket,msg['path'],msg['target'],msg['loc'],address)
             elif cmd == WREQ.REP_FILE:
-                filetransfer.write_req_file(self.socket,msg['path'],msg['body'],path.join(work_dir,msg['path']),address)
+                fileutil.write_req_file(self.socket,msg['path'],msg['target'],WORK_DIR,msg['body'],address)
             elif cmd == WREQ.REQ_ANALYSIS:
                 try:
                     a = analysis_queue.get_nowait()
                     # TODO: get apk from somewhere and transfer with message
+                    app = path.join(WORK_DIR,a.target_apk)
+                    f = open(app,'rb')
+                    app_data = f.read()
+                    f.close()
                     self.socket.send(address,zmq.SNDMORE)
                     self.socket.send("",zmq.SNDMORE)
-                    self.socket.send_pyobj({'cmd':WREQ.REP_ANALYSIS,'droidblaze':a})
+                    self.socket.send_pyobj({'cmd':WREQ.REP_ANALYSIS,'droidblaze':a,'app':app_data})
                 except Empty:
                     self.socket.send(address,zmq.SNDMORE)
                     self.socket.send("",zmq.SNDMORE)
@@ -86,8 +107,8 @@ class WorkerResponder(Thread):
 
 
 def main():
-    if not path.exists(work_dir):
-        os.makedirs(work_dir)
+    if not path.exists(WORK_DIR):
+        os.makedirs(WORK_DIR)
 
     context = zmq.Context(1)
 

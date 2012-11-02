@@ -4,16 +4,17 @@ import zmq
 from droidblaze import Droidblaze
 from Queue import Queue
 from threading import Thread
-import filetransfer
+import fileutil
 import signal
 from cmd import WREQ,SPUB
 import os
+import shutil
 from os import path
 
 server = "tcp://localhost:7980"
 server_cast = "tcp://localhost:7981"
 
-work_dir = "temp"
+WORK_DIR = "temp"
 
 msg_queue = Queue()
 
@@ -36,32 +37,52 @@ class Worker(Thread):
     def __init__(self,socket):
         Thread.__init__(self)
         self.socket = socket
+    def filetransfer(self):
+        while True:
+            msg = self.socket.recv_pyobj()
+            cmd = msg['cmd']
+            if cmd == WREQ.REP_FILE:
+                fileutil.write_req_file(self.socket,msg['path'],msg['target'],WORK_DIR,msg['body'])
+            elif cmd == WREQ.REQ_FILE:
+                fileutil.send_file(self.socket,msg['path'],msg['target'],msg['loc'])
+            elif cmd == WREQ.DONE:
+                break
+            else:
+                print("what?? "+cmd)
+    def cleanup(self):
+        shutil.rmtree(WORK_DIR)
     def run(self):
+        self.cleanup()
         print("Worker started")
         while True:
+            print("getting from queue")
             msg = msg_queue.get()
             cmd = msg['cmd']
             print("next cmd: "+cmd)
             if cmd == SPUB.NOTIFY_UPDATE:
-                self.socket.send_pyobj({'cmd':WREQ.REQ_FILE,'path':msg['path'],'loc':0})
+                self.socket.send_pyobj({'cmd':WREQ.REQ_FILE,'path':msg['path'],'target':msg['target'],'loc':0})
+                self.filetransfer()
+                fileutil.untar(WORK_DIR,msg['target'])
             elif cmd == SPUB.ANALYZE_APP:
                 self.socket.send_pyobj({'cmd':WREQ.REQ_ANALYSIS})
+                res = self.socket.recv_pyobj()
+                msg_queue.put(res)
             elif cmd == WREQ.REP_ANALYSIS:
                 a = msg['droidblaze']
-                a.run()
-                self.socket.send_pyobj({'cmd':WREQ.REQ_ANALYSIS})
-            elif cmd == WREQ.REP_FILE:
-                filetransfer.write_req_file(self.socket,msg['path'],msg['body'],path.join(work_dir,msg['path']))
-            elif cmd == WREQ.REQ_FILE:
-                filetransfer.send_file(self.socket,msg['path'],msg['loc'])
+                app = path.join(WORK_DIR,a.target_apk)
+                f = open(app, 'w')
+                f.write(msg['app'])
+                f.close()
+                a.run(WORK_DIR)
+                fileutil.tar_result(WORK_DIR,"droidblaze_output.tgz")
+                fileutil.send_file(self.socket,path.join(WORK_DIR,"droidblaze_output.tgz"),path.join(a.analysis_id,"droidblaze_output.tgz"),0)
+                self.filetransfer()
+                msg_queue.put({'cmd':SPUB.ANALYZE_APP})
             msg_queue.task_done()
-            res = self.socket.recv_pyobj()
-            if not res['cmd'] == WREQ.DONE:
-                msg_queue.put(res)
 
 def main():
-    if not path.exists(work_dir):
-        os.makedirs(work_dir)
+    if not path.exists(WORK_DIR):
+        os.makedirs(WORK_DIR)
     context = zmq.Context(1)
     cast_socket = context.socket(zmq.SUB)
     cast_socket.connect(server_cast)

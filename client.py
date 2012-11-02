@@ -10,6 +10,7 @@ def main():
     socket = context.socket(zmq.REQ)
     socket.connect(server)
 
+    #socket.send_pyobj({'cmd':CREQ.NOTIFY_UPDATE})
     socket.send_pyobj({'cmd':CREQ.ANALYZE_APP})
 
     msg = socket.recv()
