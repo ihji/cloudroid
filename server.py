@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import zmq
-import binascii
 from Queue import Queue,Empty
 from threading import Thread
 import signal
@@ -56,18 +55,6 @@ class WorkerResponder(Thread):
     def __init__(self,socket):
         Thread.__init__(self)
         self.socket = socket
-    def getWorkerName(self,address):
-        is_text = True
-        for c in address:
-            if ord(c) < 32 or ord(c) > 128:
-                is_text = False
-                break
-        if is_text:
-            # print only if ascii text
-            return address
-        else:
-            # not text, print hex
-            return binascii.hexlify(address)
     def run(self):
         print("WorkerResponder started.")
         while True:
@@ -76,10 +63,9 @@ class WorkerResponder(Thread):
             msg = self.socket.recv_pyobj()
             cmd = msg['cmd']
 
-            worker = self.getWorkerName(address)
-            worker_dir = path.join(WORK_DIR,worker)
+            worker_dir = path.join(WORK_DIR,address)
 
-            print("received from {}: {}".format(worker,cmd))
+            print("received from {}: {}".format(address,cmd))
             if cmd == WREQ.REQ_FILE:
                 fileutil.send_file(self.socket,msg['path'],msg['target'],msg['loc'],address)
             elif cmd == WREQ.REP_FILE:

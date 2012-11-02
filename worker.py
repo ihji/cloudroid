@@ -10,11 +10,13 @@ from cmd import WREQ,SPUB
 import os
 import shutil
 from os import path
+import uuid
 
 server = "tcp://localhost:7980"
 server_cast = "tcp://localhost:7981"
 
 WORK_DIR = "temp"
+WORKER_ID = hex(uuid.getnode())
 
 msg_queue = Queue()
 
@@ -75,7 +77,7 @@ class Worker(Thread):
                 f.close()
                 a.run(WORK_DIR)
                 fileutil.tar_result(WORK_DIR,"droidblaze_output.tgz")
-                fileutil.send_file(self.socket,path.join(WORK_DIR,"droidblaze_output.tgz"),path.join(a.analysis_id,"droidblaze_output.tgz"),0)
+                fileutil.send_file(self.socket,path.join(WORK_DIR,"droidblaze_output.tgz"),path.join(a.analysis_id,WORKER_ID,"droidblaze_output.tgz"),0)
                 self.filetransfer()
                 msg_queue.put({'cmd':SPUB.ANALYZE_APP})
             msg_queue.task_done()
@@ -88,6 +90,7 @@ def main():
     cast_socket.connect(server_cast)
     cast_socket.setsockopt(zmq.SUBSCRIBE,"")
     req_socket = context.socket(zmq.REQ)
+    req_socket.setsockopt(zmq.IDENTITY,WORKER_ID)
     req_socket.connect(server)
 
     receiver_thread = CastReceiver(cast_socket)
