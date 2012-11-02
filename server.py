@@ -31,6 +31,8 @@ class ClientResponder(Thread):
             elif cmd == CREQ.ANALYZE_APP:
                 a = Droidblaze("test","SyncMyPix.apk","generate-cpcg")
                 analysis_queue.put(a)
+                a = Droidblaze("test","spyera.apk","generate-cpcg")
+                analysis_queue.put(a)
                 cast_queue.put(msg)
                 self.socket.send("queued")
 
@@ -87,7 +89,9 @@ class WorkerResponder(Thread):
                     self.socket.send("",zmq.SNDMORE)
                     self.socket.send_pyobj({'cmd':WREQ.DONE})
             elif cmd == WREQ.FIN_ANALYSIS:
-                fileutil.untar(path.join(WORK_DIR,msg['id']),msg['result'])
+                a = msg['droidblaze']
+                fileutil.untar(path.join(WORK_DIR,a.analysis_id),msg['result'])
+                a.merging_summary(path.join(WORK_DIR,a.analysis_id))
                 self.socket.send(address,zmq.SNDMORE)
                 self.socket.send("",zmq.SNDMORE)
                 self.socket.send_pyobj({'cmd':WREQ.DONE})

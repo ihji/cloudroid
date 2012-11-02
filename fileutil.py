@@ -7,6 +7,7 @@ from subprocess import Popen
 import hashlib
 
 TRANSFER_BUF = 512000
+FILEUTIL_DIR = os.path.dirname(__file__)
 
 def send_file(socket,path,target,loc,address=None):
     fn = open(path,"rb")
@@ -58,3 +59,14 @@ def getmd5(f):
         for chunk in iter(lambda: f.read(8192), b''):
             md5.update(chunk)
     return md5.digest()
+
+def saxon(work_dir,outfile,xmlfile,xslfile):
+    cmd = []
+    cmd.append("java")
+    cmd.append("-cp")
+    cmd.append(os.path.join(FILEUTIL_DIR,"saxon9he.jar"))
+    cmd.append("net.sf.saxon.Transform")
+    cmd.append("-o:"+outfile)
+    cmd.append(xmlfile)
+    cmd.append(xslfile)
+    Popen(cmd,cwd=work_dir).wait()

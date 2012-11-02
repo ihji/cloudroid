@@ -91,7 +91,7 @@ class Worker(Thread):
                 fileutil.send_file(self.socket,path.join(WORK_DIR,app_tgz),path.join(a.analysis_id,WORKER_ID,app_tgz),0)
                 self.filetransfer()
                 msg_queue.put({'cmd':SPUB.ANALYZE_APP})
-                self.socket.send_pyobj({'cmd':WREQ.FIN_ANALYSIS,'id': a.analysis_id,'result':path.join(WORKER_ID,app_tgz)})
+                self.socket.send_pyobj({'cmd':WREQ.FIN_ANALYSIS,'droidblaze': a,'result':path.join(WORKER_ID,app_tgz)})
                 res = self.socket.recv_pyobj()
                 msg_queue.put(res)
             elif cmd == WREQ.DONE:
