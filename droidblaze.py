@@ -57,7 +57,7 @@ class Droidblaze:
         cmd.append("-Ddroidblaze.run.analyses={}".format(self.run_analyses))
         cmd.append("-jar")
         cmd.append(self.droidblaze_jar)
-        Popen(cmd,cwd=work_dir).wait()
+        return Popen(cmd,cwd=work_dir)
 
 if __name__ == "__main__":
     dr = Droidblaze(sys.argv[1],sys.argv[2])

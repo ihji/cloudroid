@@ -45,6 +45,8 @@ class ClientResponder(Thread):
                 cast_queue.put({'cmd':CREQ.ANALYZE_APP})
                 self.socket.send("queued")
             elif cmd == CREQ.UPDATE_STATUS:
+                global client_status
+                client_status = {}
                 cast_queue.put(msg)
                 self.socket.send("queued")
             elif cmd == CREQ.REPORT_STATUS:
