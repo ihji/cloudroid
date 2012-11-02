@@ -45,7 +45,8 @@ class ServerCaster(Thread):
             cmd = msg['cmd']
             print("next cmd: "+cmd)
             if cmd == CREQ.NOTIFY_UPDATE:
-                self.socket.send_pyobj({'cmd':SPUB.NOTIFY_UPDATE,'path':"droidblaze.tgz",'target':"droidblaze.tgz"})
+                md5 = fileutil.getmd5(msg['file'])
+                self.socket.send_pyobj({'cmd':SPUB.NOTIFY_UPDATE,'path':msg['file'],'md5':md5})
             elif cmd == CREQ.ANALYZE_APP:
                 self.socket.send_pyobj({'cmd':SPUB.ANALYZE_APP})
             cast_queue.task_done()
@@ -85,10 +86,17 @@ class WorkerResponder(Thread):
                     self.socket.send(address,zmq.SNDMORE)
                     self.socket.send("",zmq.SNDMORE)
                     self.socket.send_pyobj({'cmd':WREQ.DONE})
+            elif cmd == WREQ.FIN_ANALYSIS:
+                fileutil.untar(path.join(WORK_DIR,msg['id']),msg['result'])
+                self.socket.send(address,zmq.SNDMORE)
+                self.socket.send("",zmq.SNDMORE)
+                self.socket.send_pyobj({'cmd':WREQ.DONE})
             elif cmd == WREQ.DONE:
                 self.socket.send(address,zmq.SNDMORE)
                 self.socket.send("",zmq.SNDMORE)
                 self.socket.send_pyobj({'cmd':WREQ.DONE})
+            else:
+                print("what?: "+cmd)
                     
 
 

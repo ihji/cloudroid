@@ -2,6 +2,9 @@
 
 from subprocess import Popen
 import sys
+from os import path
+import shutil
+import fileutil
 
 class Droidblaze:
     java = "java"
@@ -9,12 +12,18 @@ class Droidblaze:
     sdk_dir = "android-sdk"
     jvm_option = "-Xmx2048M"
     debug_option = "-Ddroidblaze.debug.consolemsg=1"
+    output_dir = "droidblaze_output"
 
     def __init__(self,analysis_id,target,analyses):
         self.analysis_id = analysis_id
         self.target_apk = target
         self.run_analyses = analyses
+    def tar_result(self,work_dir,outfile):
+        fileutil.tar(work_dir,outfile,self.output_dir)
     def run(self,work_dir):
+        output = path.join(work_dir,self.output_dir)
+        if path.exists(output):
+            shutil.rmtree(output)
         cmd = []
         cmd.append(self.java)
         cmd.append(self.jvm_option)

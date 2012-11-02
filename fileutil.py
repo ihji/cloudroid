@@ -4,6 +4,7 @@ import zmq
 from cmd import WREQ
 import os
 from subprocess import Popen
+import hashlib
 
 TRANSFER_BUF = 512000
 
@@ -36,12 +37,12 @@ def write_req_file(socket,path,target_path,work_dir,data,address=None):
             socket.send("",zmq.SNDMORE)
         socket.send_pyobj({'cmd':WREQ.DONE})
 
-def tar_result(work_dir,outfile):
+def tar(work_dir,outfile,target):
     cmd = []
     cmd.append("tar")
     cmd.append("cvzf")
     cmd.append(outfile)
-    cmd.append("droidblaze_output")
+    cmd.append(target)
     Popen(cmd,cwd=work_dir).wait()
 
 def untar(work_dir,infile):
@@ -51,3 +52,9 @@ def untar(work_dir,infile):
     cmd.append(infile)
     Popen(cmd,cwd=work_dir).wait()
 
+def getmd5(f):
+    md5 = hashlib.md5()
+    with open(f,'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            md5.update(chunk)
+    return md5.digest()
