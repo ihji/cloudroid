@@ -44,6 +44,9 @@ class ClientResponder(Thread):
                         analysis_queue.put({'droidblaze':a,'file':app})
                 cast_queue.put({'cmd':CREQ.ANALYZE_APP})
                 self.socket.send("queued")
+            elif cmd == CREQ.NOTIFY_ANALYZE:
+                cast_queue.put({'cmd':CREQ.ANALYZE_APP})
+                self.socket.send("notified")
             elif cmd == CREQ.REPORT_STATUS:
                 self.socket.send("report: {}".format(client_status))
 
