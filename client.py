@@ -4,12 +4,13 @@ import zmq,sys
 from cmd import CREQ
 import time
 
-server = "tcp://localhost:7979"
+SERVER_ADDRESS = "localhost"
+SERVER = "tcp://{}:7979".format(SERVER_ADDRESS)
 
 def main():
     context = zmq.Context(1)
     socket = context.socket(zmq.REQ)
-    socket.connect(server)
+    socket.connect(SERVER)
 
 #    socket.send_pyobj({'cmd':CREQ.NOTIFY_UPDATE,'file':"droidblaze.tgz"})
 #    msg = socket.recv()
@@ -19,14 +20,10 @@ def main():
 #    msg = socket.recv()
 #    print(msg)
 
-#    socket.send_pyobj({'cmd':CREQ.ANALYZE_DIR,'id':"test",'dir':"server_temp",'task':"generate-cpcg"})
+#    socket.send_pyobj({'cmd':CREQ.ANALYZE_DIR,'id':"test",'dir':"apks",'task':"generate-cpcg"})
 #    msg = socket.recv()
 #    print(msg)
 
-    socket.send_pyobj({'cmd':CREQ.UPDATE_STATUS})
-    msg = socket.recv()
-    print(msg)
-    time.sleep(2)
     socket.send_pyobj({'cmd':CREQ.REPORT_STATUS})
     msg = socket.recv()
     print(msg)

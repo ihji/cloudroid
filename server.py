@@ -44,11 +44,6 @@ class ClientResponder(Thread):
                         analysis_queue.put({'droidblaze':a,'file':app})
                 cast_queue.put({'cmd':CREQ.ANALYZE_APP})
                 self.socket.send("queued")
-            elif cmd == CREQ.UPDATE_STATUS:
-                global client_status
-                client_status = {}
-                cast_queue.put(msg)
-                self.socket.send("queued")
             elif cmd == CREQ.REPORT_STATUS:
                 self.socket.send("report: {}".format(client_status))
 
@@ -56,10 +51,18 @@ class ServerCaster(Thread):
     def __init__(self,socket):
         Thread.__init__(self)
         self.socket = socket
+    def rutineJobs(self):
+        global client_status
+        client_status = {}
+        self.socket.send_pyobj({'cmd':SPUB.UPDATE_STATUS}) # heartbeat
     def run(self):
         print("ServerCaster started.")
         while True:
-            msg = cast_queue.get()
+            self.rutineJobs()
+            try:
+                msg = cast_queue.get(True,10)
+            except Empty:
+                continue
             cmd = msg['cmd']
             print("next cmd: "+cmd)
             if cmd == CREQ.NOTIFY_UPDATE:
@@ -67,8 +70,6 @@ class ServerCaster(Thread):
                 self.socket.send_pyobj({'cmd':SPUB.NOTIFY_UPDATE,'path':msg['file'],'md5':md5})
             elif cmd == CREQ.ANALYZE_APP:
                 self.socket.send_pyobj({'cmd':SPUB.ANALYZE_APP})
-            elif cmd == CREQ.UPDATE_STATUS:
-                self.socket.send_pyobj({'cmd':SPUB.UPDATE_STATUS})
             cast_queue.task_done()
 
 
