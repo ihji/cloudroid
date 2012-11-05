@@ -16,9 +16,9 @@ def main():
 #    msg = socket.recv()
 #    print(msg)
 #
-#    socket.send_pyobj({'cmd':CREQ.ANALYZE_APP,'id':"test",'apk':"SyncMyPix.apk",'task':"generate-cpcg"})
-#    msg = socket.recv()
-#    print(msg)
+    socket.send_pyobj({'cmd':CREQ.ANALYZE_APP,'id':"test",'apk':"SyncMyPix.apk",'task':"generate-cpcg"})
+    msg = socket.recv()
+    print(msg)
 
 #    socket.send_pyobj({'cmd':CREQ.ANALYZE_DIR,'id':"test",'dir':"apks",'task':"generate-cpcg"})
 #    msg = socket.recv()

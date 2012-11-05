@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+    <title>Worker Status Page</title>
+</head>
+<body>
+    <h1>Worker Status List</h1>
+    <table>
+        <tr>
+            <td>Worker ID</td>
+            <td>Status</td>
+        </tr>
+        {% for status in status_map.items() %}
+        <tr>
+            <td>{{ status[0] }}</td>
+            <td>{{ status[1] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <p>Number of jobs in analysis queue: {{ analysis_queue.qsize() }}</p>
+</body>
+</html>
