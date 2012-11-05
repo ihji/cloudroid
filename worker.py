@@ -12,6 +12,7 @@ import shutil
 from os import path
 import uuid
 import time
+from datetime import datetime
 
 SERVER_ADDRESS = "localhost"
 
@@ -71,10 +72,12 @@ class Worker(Thread):
                 print("what?? "+cmd)
     def analyzer_run(self,a):
         global status
-        status = "analyze"
+        init_time = datetime.now()
         p = a.run(WORK_DIR)
         ret = p.poll()
         while ret == None:
+            elapsed_time = datetime.now() - init_time
+            status = "analyze {}: {} ({})".format(a.analysis_id,a.target_apk,elapsed_time)
             self.report_status()
             time.sleep(1)
             ret = p.poll()
