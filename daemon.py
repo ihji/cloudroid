@@ -13,6 +13,7 @@ from droidblaze import Droidblaze
 cast_queue = Queue()
 analysis_queue = Queue()
 client_status = {}
+updated_client = set()
 
 WORK_DIR = "server_temp"
 
@@ -55,8 +56,10 @@ class ServerCaster(Thread):
         Thread.__init__(self)
         self.socket = socket
     def rutineJobs(self):
-        global client_status
-        client_status = {}
+        for c in client_status.keys():
+            if c not in updated_client:
+                client_status.pop(c)
+        updated_client.clear()
         self.socket.send_pyobj({'cmd':SPUB.UPDATE_STATUS}) # heartbeat
     def run(self):
         print("ServerCaster started.")
@@ -125,6 +128,7 @@ class WorkerResponder(Thread):
             elif cmd == WREQ.STATUS:
                 status = msg['status']
                 client_status[address] = status
+                updated_client.add(address)
                 self.socket.send(address,zmq.SNDMORE)
                 self.socket.send("",zmq.SNDMORE)
                 self.socket.send_pyobj({'cmd':WREQ.DONE})
