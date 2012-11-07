@@ -121,8 +121,9 @@ class WorkerResponder(Thread):
                     self.socket.send_pyobj({'cmd':WREQ.DONE})
             elif cmd == WREQ.FIN_ANALYSIS:
                 a = msg['droidblaze']
+                ret = msg['status']
                 fileutil.untar(path.join(WORK_DIR,a.analysis_id),msg['result'])
-                a.merging_summary(path.join(WORK_DIR,a.analysis_id))
+                a.merging_summary(path.join(WORK_DIR,a.analysis_id),ret)
                 self.socket.send(address,zmq.SNDMORE)
                 self.socket.send("",zmq.SNDMORE)
                 self.socket.send_pyobj({'cmd':WREQ.DONE})

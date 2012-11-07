@@ -24,10 +24,17 @@ class Droidblaze:
         self.run_analyses = analyses
     def tar_result(self,work_dir,outfile):
         fileutil.tar(work_dir,outfile,self.output_dir)
-    def merging_summary(self,work_dir):
+    def merging_summary(self,work_dir,retcode):
         merged = path.join(work_dir,self.merged_xml)
         old_merged = merged+".old"
         summary = path.join(work_dir,self.summary_xml)
+        if retcode == 143: # SIGTERM
+            summary_file = open(summary,"a")
+            contents = '''    <run_summary results_file="" status="1" run_time="99:99:99:999" />
+  </run>
+</droidblaze_summary>'''
+            summary_file.write(contents)
+            summary_file.close()
         if not path.exists(merged):
             shutil.copyfile(summary,merged)
         else:

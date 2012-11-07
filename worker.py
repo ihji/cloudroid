@@ -86,9 +86,10 @@ class Worker(Thread):
             status = "analyze {}: {} ({})".format(a.analysis_id,a.target_apk,elapsed_time)
             self.report_status()
             if stop_analyze:
-                p.kill()
+                p.terminate()
             time.sleep(1)
             ret = p.poll()
+        return ret
     def cleanup(self):
         shutil.rmtree(WORK_DIR)
     def run(self):
@@ -126,13 +127,13 @@ class Worker(Thread):
                     f = open(app, 'w')
                     f.write(res['app'])
                     f.close()
-                    self.analyzer_run(a)
+                    ret = self.analyzer_run(a)
                     app_tgz = path.splitext(a.target_apk)[0]+".tgz"
                     a.tar_result(WORK_DIR,app_tgz)
                     fileutil.send_file(self.socket,path.join(WORK_DIR,app_tgz),path.join(a.analysis_id,WORKER_ID,app_tgz),0)
                     self.filetransfer()
                     msg_queue.put({'cmd':SPUB.ANALYZE_APP})
-                    self.socket.send_pyobj({'cmd':WREQ.FIN_ANALYSIS,'droidblaze': a,'result':path.join(WORKER_ID,app_tgz)})
+                    self.socket.send_pyobj({'cmd':WREQ.FIN_ANALYSIS,'droidblaze': a,'result':path.join(WORKER_ID,app_tgz),'status':ret})
                     res = self.socket.recv_pyobj()
             else:
                 print("what?: "+cmd)
