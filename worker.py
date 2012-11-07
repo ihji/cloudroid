@@ -26,6 +26,7 @@ DROIDBLAZE_DIST = "droidblaze.tgz"
 msg_queue = Queue()
 status = "init"
 update_status = False
+stop_analyze = False
 
 class CastReceiver(Thread):
     def __init__(self,socket):
@@ -44,6 +45,10 @@ class CastReceiver(Thread):
             elif cmd == SPUB.UPDATE_STATUS:
                 global update_status
                 update_status = True
+            elif cmd == SPUB.NOTIFY_STOP:
+                global stop_analyze
+                if msg['address'] == WORKER_ID:
+                    stop_analyze = True
 
 class Worker(Thread):
     def __init__(self,socket):
@@ -71,14 +76,17 @@ class Worker(Thread):
             else:
                 print("what?? "+cmd)
     def analyzer_run(self,a):
-        global status
+        global status,stop_analyze
         init_time = datetime.now()
+        stop_analyze = False
         p = a.run(WORK_DIR)
         ret = p.poll()
         while ret == None:
             elapsed_time = datetime.now() - init_time
             status = "analyze {}: {} ({})".format(a.analysis_id,a.target_apk,elapsed_time)
             self.report_status()
+            if stop_analyze:
+                p.kill()
             time.sleep(1)
             ret = p.poll()
     def cleanup(self):

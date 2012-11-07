@@ -50,6 +50,9 @@ class ClientResponder(Thread):
                 self.socket.send("notified")
             elif cmd == CREQ.REPORT_STATUS:
                 self.socket.send("report: {}".format(client_status))
+            elif cmd == CREQ.NOTIFY_STOP:
+                cast_queue.put(msg)
+                self.socket.send("notified")
 
 class ServerCaster(Thread):
     def __init__(self,socket):
@@ -76,6 +79,8 @@ class ServerCaster(Thread):
                 self.socket.send_pyobj({'cmd':SPUB.NOTIFY_UPDATE,'path':msg['file'],'md5':md5})
             elif cmd == CREQ.ANALYZE_APP:
                 self.socket.send_pyobj({'cmd':SPUB.ANALYZE_APP})
+            elif cmd == CREQ.NOTIFY_STOP:
+                self.socket.send_pyobj({'cmd':SPUB.NOTIFY_STOP,'address':msg['address']})
             cast_queue.task_done()
 
 
