@@ -2,21 +2,49 @@
 <html>
 <head>
     <title>Worker Status Page</title>
+    <link href="static/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <style>
+        table.workertable th,td:nth-of-type(1) {
+            width: 200px;
+            text-align: center;
+        }
+        table.workertable th,td:nth-of-type(2) {
+            width: 400px;
+            text-align: center;
+        }
+    </style>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.js"></script>
+    <script src="static/js/bootstrap.min.js"></script>
+    <script>
+        $.get('workerlist',function(data) {
+            $('#workerlist').html(data);
+        });
+        $.get('queuesize',function(data) {
+            $('#queuesize').html(data);
+        });
+        var auto_refresh = setInterval(
+            function ()
+            {
+            $('#workerlist').load('workerlist').fadeIn("slow");
+            $('#queuesize').load('queuesize').fadeIn("slow");
+            }, 10000);
+    </script>
 </head>
 <body>
-    <h1>Worker Status List</h1>
-    <table>
-        <tr>
-            <td>Worker ID</td>
-            <td>Status</td>
-        </tr>
-        {% for status in status_map.items() %}
-        <tr>
-            <td>{{ status[0] }}</td>
-            <td>{{ status[1] }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-    <p>Number of jobs in analysis queue: {{ analysis_queue.qsize() }}</p>
+    <div class="container">
+        <div class"page-header">
+            <h1>Worker Status List</h1>
+        </div>
+        <div class="row">
+            <table class="workertable">
+                <thead>
+                <tr><th>Worker ID</th><th>Status</th></tr>
+                </thead>
+                <tbody id="workerlist">
+                </tbody>
+            </table>
+        </div>
+        <p>Number of jobs in analysis queue: <span id="queuesize"></span></p>
+    </div>
 </body>
 </html>
