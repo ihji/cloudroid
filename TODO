@@ -1,6 +1,2 @@
 * smarter merging (put server id instead of '1', put total analysis time)
-* kill infinite analysis
-* auto refreshing webpage
-* put some random bits after worker id (to allow multiple instances)
-* resume for long long analysis
 * package refactoring
