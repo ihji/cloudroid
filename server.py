@@ -22,4 +22,4 @@ def queuesize():
 
 if __name__ == '__main__':
     daemon.launch()
-    app.run()
+    app.run(host='0.0.0.0')

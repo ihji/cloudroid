@@ -12,6 +12,7 @@ import shutil
 from os import path
 import uuid
 import time
+import sys
 from datetime import datetime
 
 SERVER_ADDRESS = "localhost"
@@ -19,8 +20,6 @@ SERVER_ADDRESS = "localhost"
 SERVER = "tcp://{}:7980".format(SERVER_ADDRESS)
 SERVER_CAST = "tcp://{}:7981".format(SERVER_ADDRESS)
 
-WORK_DIR = "temp"
-WORKER_ID = hex(uuid.getnode())
 DROIDBLAZE_DIST = "droidblaze.tgz"
 
 msg_queue = Queue()
@@ -29,9 +28,10 @@ update_status = False
 stop_analyze = False
 
 class CastReceiver(Thread):
-    def __init__(self,socket):
+    def __init__(self,socket,workerid):
         Thread.__init__(self)
         self.socket = socket
+        self.workerid = workerid
     def run(self):
         print("CastReceiver started")
         while True:
@@ -47,13 +47,15 @@ class CastReceiver(Thread):
                 update_status = True
             elif cmd == SPUB.NOTIFY_STOP:
                 global stop_analyze
-                if msg['address'] == WORKER_ID:
+                if msg['address'] == self.workerid:
                     stop_analyze = True
 
 class Worker(Thread):
-    def __init__(self,socket):
+    def __init__(self,socket,workerid,workdir):
         Thread.__init__(self)
         self.socket = socket
+        self.workerid = workerid
+        self.workdir = workdir
     def report_status(self):
         global update_status
         if update_status:
@@ -68,7 +70,7 @@ class Worker(Thread):
             cmd = msg['cmd']
             self.report_status()
             if cmd == WREQ.REP_FILE:
-                fileutil.write_req_file(self.socket,msg['path'],msg['target'],WORK_DIR,msg['body'])
+                fileutil.write_req_file(self.socket,msg['path'],msg['target'],self.workdir,msg['body'])
             elif cmd == WREQ.REQ_FILE:
                 fileutil.send_file(self.socket,msg['path'],msg['target'],msg['loc'])
             elif cmd == WREQ.DONE:
@@ -79,7 +81,7 @@ class Worker(Thread):
         global status,stop_analyze
         init_time = datetime.now()
         stop_analyze = False
-        p = a.run(WORK_DIR)
+        p = a.run(self.workdir)
         ret = p.poll()
         while ret == None:
             elapsed_time = datetime.now() - init_time
@@ -91,7 +93,7 @@ class Worker(Thread):
             ret = p.poll()
         return ret
     def cleanup(self):
-        shutil.rmtree(WORK_DIR)
+        shutil.rmtree(self.workdir)
     def run(self):
         global status
         print("Worker started")
@@ -105,7 +107,7 @@ class Worker(Thread):
             cmd = msg['cmd']
             print("next cmd: "+cmd)
             if cmd == SPUB.NOTIFY_UPDATE:
-                dist = path.join(WORK_DIR,DROIDBLAZE_DIST)
+                dist = path.join(self.workdir,DROIDBLAZE_DIST)
                 if os.path.exists(dist):
                     dist_md5 = fileutil.getmd5(dist)
                 else:
@@ -114,7 +116,7 @@ class Worker(Thread):
                     self.cleanup()
                     self.socket.send_pyobj({'cmd':WREQ.REQ_FILE,'path':msg['path'],'target':DROIDBLAZE_DIST,'loc':0})
                     self.filetransfer()
-                    fileutil.untar(WORK_DIR,DROIDBLAZE_DIST)
+                    fileutil.untar(self.workdir,DROIDBLAZE_DIST)
                     print("updated")
                 else:
                     print("already up to date")
@@ -123,25 +125,36 @@ class Worker(Thread):
                 res = self.socket.recv_pyobj()
                 if res['cmd'] == WREQ.REP_ANALYSIS:
                     a = res['droidblaze']
-                    app = path.join(WORK_DIR,a.target_apk)
+                    app = path.join(self.workdir,a.target_apk)
                     f = open(app, 'w')
                     f.write(res['app'])
                     f.close()
                     ret = self.analyzer_run(a)
                     app_tgz = path.splitext(a.target_apk)[0]+".tgz"
-                    a.tar_result(WORK_DIR,app_tgz)
-                    fileutil.send_file(self.socket,path.join(WORK_DIR,app_tgz),path.join(a.analysis_id,WORKER_ID,app_tgz),0)
+                    a.tar_result(self.workdir,app_tgz)
+                    fileutil.send_file(self.socket,path.join(self.workdir,app_tgz),path.join(a.analysis_id,self.workerid,app_tgz),0)
                     self.filetransfer()
                     msg_queue.put({'cmd':SPUB.ANALYZE_APP})
-                    self.socket.send_pyobj({'cmd':WREQ.FIN_ANALYSIS,'droidblaze': a,'result':path.join(WORKER_ID,app_tgz),'status':ret})
+                    self.socket.send_pyobj({'cmd':WREQ.FIN_ANALYSIS,'droidblaze': a,'result':path.join(self.workerid,app_tgz),'status':ret})
                     res = self.socket.recv_pyobj()
             else:
                 print("what?: "+cmd)
             msg_queue.task_done()
 
 def main():
+    if len(sys.argv) < 2:
+        print("Give me a worker name!\n")
+
+    worker_postfix = sys.argv[1]
+
+    WORKER_ID="{}_{}".format(hex(uuid.getnode()),worker_postfix)
+    WORK_DIR="temp_"+WORKER_ID
+
     if not path.exists(WORK_DIR):
         os.makedirs(WORK_DIR)
+    else:
+        print("Warning: working directory already exists. Be sure that another worker with the same name is not running on this machine.\n")
+
     context = zmq.Context(1)
     cast_socket = context.socket(zmq.SUB)
     cast_socket.connect(SERVER_CAST)
@@ -150,11 +163,11 @@ def main():
     req_socket.setsockopt(zmq.IDENTITY,WORKER_ID)
     req_socket.connect(SERVER)
 
-    receiver_thread = CastReceiver(cast_socket)
+    receiver_thread = CastReceiver(cast_socket,WORKER_ID)
     receiver_thread.daemon = True
     receiver_thread.start()
 
-    worker_thread = Worker(req_socket)
+    worker_thread = Worker(req_socket,WORKER_ID,WORK_DIR)
     worker_thread.daemon = True
     worker_thread.start()
 
