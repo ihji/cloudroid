@@ -21,6 +21,18 @@ class ClientResponder(Thread):
     def __init__(self,socket):
         Thread.__init__(self)
         self.socket = socket
+    def existingResults(self,analysisID):
+        analysisDir = path.join(WORK_DIR,analysisID)
+        dirs = []
+        for f in os.listdir(analysisDir):
+            if f.startswith("0x") and path.isdir(path.join(analysisDir,f)):
+                dirs.append(path.join(analysisDir,f))
+        apks = set()
+        for d in dirs:
+            for r in os.listdir(d):
+                if r.endswith(".tgz"):
+                    apks.add(r.replace(".tgz",".apk"))
+        return apks
     def run(self):
         print("ClientResponder started.")
         while True:
@@ -31,20 +43,29 @@ class ClientResponder(Thread):
                 cast_queue.put(msg)
                 self.socket.send("notified")
             elif cmd == CREQ.ANALYZE_APP:
-                a = Droidblaze(msg['id'],msg['apk'],msg['task'])
-                app = path.join(WORK_DIR,msg['apk'])
-                analysis_queue.put({'droidblaze':a,'file':app})
-                cast_queue.put(msg)
-                self.socket.send("queued")
+                existing = self.existingResults(msg['id'])
+                if msg['apk'] not in existing:
+                    a = Droidblaze(msg['id'],msg['apk'],msg['task'])
+                    app = path.join(WORK_DIR,msg['apk'])
+                    analysis_queue.put({'droidblaze':a,'file':app})
+                    cast_queue.put(msg)
+                    self.socket.send("queued")
+                else:
+                    self.socket.send("analysis result already exists: {}".format(msg['apk']))
             elif cmd == CREQ.ANALYZE_DIR:
                 target_dir = msg['dir']
+                existing = self.existingResults(msg['id'])
+                answer = ["queued"]
                 for f in os.listdir(target_dir):
                     if f.endswith(".apk"):
-                        a = Droidblaze(msg['id'],f,msg['task'])
-                        app = path.join(target_dir,f)
-                        analysis_queue.put({'droidblaze':a,'file':app})
+                        if f not in existing:
+                            a = Droidblaze(msg['id'],f,msg['task'])
+                            app = path.join(target_dir,f)
+                            analysis_queue.put({'droidblaze':a,'file':app})
+                        else:
+                            answer.append("analysis result already exists: {}".format(f))
                 cast_queue.put({'cmd':CREQ.ANALYZE_APP})
-                self.socket.send("queued")
+                self.socket.send("\n".join(answer))
             elif cmd == CREQ.NOTIFY_ANALYZE:
                 cast_queue.put({'cmd':CREQ.ANALYZE_APP})
                 self.socket.send("notified")

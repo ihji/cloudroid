@@ -20,13 +20,13 @@ def main():
 #    msg = socket.recv()
 #    print(msg)
 
-#    socket.send_pyobj({'cmd':CREQ.ANALYZE_DIR,'id':"test",'dir':"apks",'task':"generate-cpcg"})
-#    msg = socket.recv()
-#    print(msg)
-
-    socket.send_pyobj({'cmd':CREQ.NOTIFY_STOP,'address':"0x3c07544cbdc9"})
+    socket.send_pyobj({'cmd':CREQ.ANALYZE_DIR,'id':"test",'dir':"server_temp",'task':"generate-cpcg"})
     msg = socket.recv()
     print(msg)
+
+#    socket.send_pyobj({'cmd':CREQ.NOTIFY_STOP,'address':"0x3c07544cbdc9"})
+#    msg = socket.recv()
+#    print(msg)
 
     socket.send_pyobj({'cmd':CREQ.REPORT_STATUS})
     msg = socket.recv()
