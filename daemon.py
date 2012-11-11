@@ -24,6 +24,8 @@ class ClientResponder(Thread):
     def existingResults(self,analysisID):
         analysisDir = path.join(WORK_DIR,analysisID)
         dirs = []
+        if not path.exists(analysisDir):
+            return set()
         for f in os.listdir(analysisDir):
             if f.startswith("0x") and path.isdir(path.join(analysisDir,f)):
                 dirs.append(path.join(analysisDir,f))
