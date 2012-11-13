@@ -77,8 +77,8 @@ class ClientResponder(Thread):
             elif cmd == CREQ.REPORT_STATUS:
                 self.socket.send("report: {}".format(client_status))
             elif cmd == CREQ.EMPTY_ANALYSIS_QUEUE:
-                global analysis_queue
-                analysis_queue = Queue()
+                with analysis_queue.mutex:
+                    analysis_queue.queue.clear()
                 self.socket.send("done")
 
 class ServerCaster(Thread):
