@@ -44,6 +44,12 @@ class ClientResponder(Thread):
             if cmd == CREQ.NOTIFY_UPDATE:
                 cast_queue.put(msg)
                 self.socket.send("notified")
+            elif cmd == CREQ.NOTIFY_ANALYZE:
+                cast_queue.put({'cmd':CREQ.ANALYZE_APP})
+                self.socket.send("notified")
+            elif cmd == CREQ.NOTIFY_STOP:
+                cast_queue.put(msg)
+                self.socket.send("notified")
             elif cmd == CREQ.ANALYZE_APP:
                 existing = self.existingResults(msg['id'])
                 if msg['apk'] not in existing:
@@ -68,14 +74,12 @@ class ClientResponder(Thread):
                             answer.append("analysis result already exists: {}".format(f))
                 cast_queue.put({'cmd':CREQ.ANALYZE_APP})
                 self.socket.send("\n".join(answer))
-            elif cmd == CREQ.NOTIFY_ANALYZE:
-                cast_queue.put({'cmd':CREQ.ANALYZE_APP})
-                self.socket.send("notified")
             elif cmd == CREQ.REPORT_STATUS:
                 self.socket.send("report: {}".format(client_status))
-            elif cmd == CREQ.NOTIFY_STOP:
-                cast_queue.put(msg)
-                self.socket.send("notified")
+            elif cmd == CREQ.EMPTY_ANALYSIS_QUEUE:
+                global analysis_queue
+                analysis_queue = Queue()
+                self.socket.send("done")
 
 class ServerCaster(Thread):
     def __init__(self,socket):
